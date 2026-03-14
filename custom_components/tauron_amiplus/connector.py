@@ -366,14 +366,15 @@ class TauronAmiplusConnector:
         data = {"data": {
             "allData": [],
             "sum": 0,
-            "zones": {}
+            "zones": {},
+            "zonesName": {},
         }}
         for day in [day_from + datetime.timedelta(days=x) for x in range((day_to - day_from).days + 1)]:
             day_data = await self.get_raw_values_daily_for_day(day, generation)
             if day_data is not None:
                 data["data"]["allData"].extend(day_data["data"]["allData"])
                 data["data"]["sum"] += day_data["data"]["sum"]
-                data["data"]["zonesName"] = day_data["data"]["zonesName"]
+                data["data"]["zonesName"].update(day_data["data"].get("zonesName", {}))
                 if "tariff" in day_data["data"]:
                     data["data"]["tariff"] = day_data["data"]["tariff"]
                 for z, v in day_data["data"]["zones"].items():
