@@ -236,7 +236,7 @@ class TauronAmiplusStatisticsUpdater:
             start = self.get_time(raw_hour)
             if last_stats_time is not None and start <= last_stats_time:
                 continue
-            usage = float(raw_hour["EC"])
+            usage = self._safe_float(raw_hour.get("EC"))
             if zone_id is not None and raw_hour["Zone"] != zone_id:
                 usage = 0
             current_sum += usage
