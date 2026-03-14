@@ -237,6 +237,26 @@ class TauronAmiplusSensor(SensorEntity, CoordinatorEntity):
         return total, zones, data_range
 
     @staticmethod
+    def _safe_float(value, default: float = 0.0) -> float:
+        if value is None:
+            return default
+        try:
+            if isinstance(value, str):
+                value = value.strip()
+                if value == "":
+                    return default
+                value = value.replace(",", ".")
+            return float(value)
+        except (TypeError, ValueError):
+            return default
+
+    @staticmethod
+    def _get_zone_name(zone_names, zone_id):
+        zone_id = str(zone_id)
+        normalized_zone_names = {str(key): value for key, value in zone_names.items()}
+        return normalized_zone_names.get(zone_id, zone_id)
+
+    @staticmethod
     def get_balanced_data(consumption_data_json, generation_data_json):
         zone_names = consumption_data_json["data"]["zonesName"]
         consumption_data = consumption_data_json["data"]["allData"]
@@ -250,9 +270,9 @@ class TauronAmiplusSensor(SensorEntity, CoordinatorEntity):
         zones = {}
 
         for consumption, generation in zip(consumption_data, generation_data):
-            value_consumption = float(consumption["EC"])
-            value_generation = float(generation["EC"])
-            zone = zone_names[consumption["Zone"]]
+            value_consumption = TauronAmiplusSensor._safe_float(consumption.get("EC"))
+            value_generation = TauronAmiplusSensor._safe_float(generation.get("EC"))
+            zone = TauronAmiplusSensor._get_zone_name(zone_names, consumption.get("Zone"))
             balance = value_consumption - value_generation
             if balance > 0:
                 sum_consumption += balance
