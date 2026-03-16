@@ -3,7 +3,7 @@ import datetime
 import logging
 import re
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Any
 
 from aiohttp import ClientSession
 # from bs4 import BeautifulSoup
@@ -407,15 +407,21 @@ class TauronAmiplusConnector:
         self.log(f"Downloading daily data for day: {day_str}, generation: {generation}")
         values = await self.get_chart_values(payload)
         if values is not None:
-            if values['data']['allData'] is None or not(any(a is None for a in values['data']['values'])):
+            if values["data"]["allData"] is None or any(
+                a is None or not self.contains_data(a) for a in values["data"]["allData"]
+            ):
                 self.add_all_data(values, day)
+                self.log(f"Replaced allData: {values}")
             else:
-                for i, v in enumerate(values['data']['allData']):
-                    v['Date'] = day.strftime("%Y-%m-%d")
-            if all((a.get("Status") is not None and a.get("EC") is not None) for a in values['data']['allData']):
+                for i, v in enumerate(values["data"]["allData"]):
+                    v["Date"] = day.strftime("%Y-%m-%d")
+            if all(self.contains_data(a) for a in values["data"]["allData"]):
                 self._cache.add_value(day, generation, values)
-                self.log(f"Downloaded daily data for day: {day_str}, generation: {generation}")
-                return values
+            values["data"]["allData"] = [
+                d for d in values["data"]["allData"] if self.contains_data(d)
+            ]
+            self.log(f"Downloaded daily data for day: {day_str}, generation: {generation}")
+            return values
         self.log(f"Failed to download daily data for day: {day_str}, generation: {generation}")
         return None
 
@@ -518,10 +524,15 @@ class TauronAmiplusConnector:
                 "EC": v,
                 "Date": date.strftime("%Y-%m-%d"),
                 "Hour": i + 1,
-                "Zone": zone
+                "Zone": zone,
+                "Status": "0"
             })
 
         data["data"]["allData"] = all_datas
+
+    @staticmethod
+    def contains_data(hourly_entry: dict[str, Any]) -> bool:
+        return hourly_entry.get("Status") is not None and hourly_entry.get("EC") is not None
 
 
 class DailyDataCache:
