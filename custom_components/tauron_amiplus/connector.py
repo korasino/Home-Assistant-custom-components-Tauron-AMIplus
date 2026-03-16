@@ -276,6 +276,9 @@ class TauronAmiplusConnector:
             return tariff
         return "unknown"
 
+    def clear_cache(self) -> None:
+        self._cache.clear()
+
     @staticmethod
     def _get_meters(text: str) -> list:
         regex = r".*data-data='{\"type\": \".*\"}'>.*"
@@ -581,6 +584,13 @@ class DailyDataCache:
             self._generation_data.pop(date_str)
         if date_str in self._consumption_data:
             self._consumption_data.pop(date_str)
+
+    def clear(self) -> None:
+        self.log(
+            f"Clearing cache: consumption - {len(self._consumption_data)}, generation - {len(self._generation_data)}"
+        )
+        self._generation_data.clear()
+        self._consumption_data.clear()
 
     @staticmethod
     def _format_date(date):

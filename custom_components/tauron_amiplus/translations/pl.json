@@ -70,11 +70,21 @@
       "fields": {
         "device_id": {
           "name": "Docelowe urządzenie",
-          "description": "Urządzenie dla którego będą pobrane statystyki."
+          "description": "Urządzenie, dla którego będą pobrane statystyki."
         },
         "start_date": {
           "name": "Data początkowa.",
-          "description": "Data od której będą pobrane statystyki."
+          "description": "Data, od której będą pobrane statystyki."
+        }
+      }
+    },
+    "clear_cache": {
+      "name": "Wyczyść cache",
+      "description": "Czyści cache dla wybranego urządzenia.",
+      "fields": {
+        "device_id": {
+          "name": "Docelowe urządzenie",
+          "description": "Urządzenie, dla którego zostanie wyczyszczone cache."
         }
       }
     }
