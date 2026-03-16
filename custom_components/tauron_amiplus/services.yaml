@@ -16,3 +16,16 @@ download_statistics:
       required: true
       selector:
         date:
+
+clear_cache:
+  description: >
+    Clear cache for a given meter.
+  fields:
+    device_id:
+      name: Target device
+      description: The device to clear cache.
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: tauron_amiplus
