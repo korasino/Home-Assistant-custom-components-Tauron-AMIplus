@@ -78,6 +78,16 @@
           "description": "Start date of statistics to download."
         }
       }
+    },
+    "clear_cache": {
+      "name": "Clear cache",
+      "description": "Clear cache for a given meter.",
+      "fields": {
+        "device_id": {
+          "name": "Target device",
+          "description": "The device which cache should be cleared."
+        }
+      }
     }
   }
 }

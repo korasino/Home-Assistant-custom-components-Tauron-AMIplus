@@ -16,7 +16,7 @@ from .const import (
     DOMAIN, PLATFORMS,
 )
 from .coordinator import TauronAmiplusUpdateCoordinator
-from .services import DownloadStatisticsService
+from .services import register_all_services
 from .typing_helpers import TauronAmiplusRuntimeData, TauronAmiplusConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
@@ -88,8 +88,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: TauronAmiplusConf
     config_entry.runtime_data = TauronAmiplusRuntimeData(tauron_amiplus_update_coordinator)
     await hass.config_entries.async_forward_entry_setups(config_entry, PLATFORMS)
     config_entry.async_on_unload(config_entry.add_update_listener(async_reload_entry))
-    service = DownloadStatisticsService(hass)
-    hass.services.async_register(service.domain, service.service, service.async_handle_service, service.schema)
+    register_all_services(hass)
     await tauron_amiplus_update_coordinator.async_request_refresh()
     return True
 

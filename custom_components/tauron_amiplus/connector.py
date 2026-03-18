@@ -3,7 +3,7 @@ import datetime
 import logging
 import re
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Any
 
 from aiohttp import ClientSession
 # from bs4 import BeautifulSoup
@@ -188,7 +188,9 @@ class TauronAmiplusConnector:
             data=payload_login,
             headers=CONST_REQUEST_HEADERS,
         )
-        if "Przekroczono maksymalną liczbę logowań." in await r1.text():
+        r1_text = await r1.text()
+        self.log(f"RESPONSE 1: {r1_text}")
+        if "Przekroczono maksymalną liczbę logowań." in r1_text:
             self.log("Too many login attempts")
             raise Exception("Too many login attempts")
         r2 = await session.request(
@@ -198,6 +200,7 @@ class TauronAmiplusConnector:
             headers=CONST_REQUEST_HEADERS,
         )
         r2_text = await r2.text()
+        self.log(f"RESPONSE 2: {r2_text}")
         if "Przekroczono maksymalną liczbę logowań." in r2_text:
             self.log("Too many login attempts")
             raise Exception("Too many login attempts")
@@ -272,6 +275,9 @@ class TauronAmiplusConnector:
             tariff = tariff_search[0]
             return tariff
         return "unknown"
+
+    def clear_cache(self) -> None:
+        self._cache.clear()
 
     @staticmethod
     def _get_meters(text: str) -> list:
@@ -366,14 +372,15 @@ class TauronAmiplusConnector:
         data = {"data": {
             "allData": [],
             "sum": 0,
-            "zones": {}
+            "zones": {},
+            "zonesName": {}
         }}
         for day in [day_from + datetime.timedelta(days=x) for x in range((day_to - day_from).days + 1)]:
             day_data = await self.get_raw_values_daily_for_day(day, generation)
             if day_data is not None:
                 data["data"]["allData"].extend(day_data["data"]["allData"])
                 data["data"]["sum"] += day_data["data"]["sum"]
-                data["data"]["zonesName"] = day_data["data"]["zonesName"]
+                data["data"]["zonesName"].update(day_data["data"]["zonesName"])
                 if "tariff" in day_data["data"]:
                     data["data"]["tariff"] = day_data["data"]["tariff"]
                 for z, v in day_data["data"]["zones"].items():
@@ -386,7 +393,7 @@ class TauronAmiplusConnector:
             return None
         return data
 
-    async def get_raw_values_daily_for_day(self, day, generation):
+    async def get_raw_values_daily_for_day(self, day, generation: bool):
         day_str = TauronAmiplusConnector.format_date(day)
         cached_data = self._cache.get_value(day, generation)
         if cached_data is not None:
@@ -403,13 +410,19 @@ class TauronAmiplusConnector:
         self.log(f"Downloading daily data for day: {day_str}, generation: {generation}")
         values = await self.get_chart_values(payload)
         if values is not None:
-            if values['data']['allData'] is None or any(a is None for a in values['data']['allData']):
+            if values["data"]["allData"] is None or any(
+                a is None or not self.contains_data(a) for a in values["data"]["allData"]
+            ):
                 self.add_all_data(values, day)
+                self.log(f"Replaced allData: {values}")
             else:
-                for i, v in enumerate(values['data']['allData']):
-                    v['Date'] = day.strftime("%Y-%m-%d")
-            if all(a.get("Status") is not None for a in values['data']['allData']):
+                for i, v in enumerate(values["data"]["allData"]):
+                    v["Date"] = day.strftime("%Y-%m-%d")
+            if all(self.contains_data(a) for a in values["data"]["allData"]):
                 self._cache.add_value(day, generation, values)
+            values["data"]["allData"] = [
+                d for d in values["data"]["allData"] if self.contains_data(d)
+            ]
             self.log(f"Downloaded daily data for day: {day_str}, generation: {generation}")
             return values
         self.log(f"Failed to download daily data for day: {day_str}, generation: {generation}")
@@ -514,10 +527,15 @@ class TauronAmiplusConnector:
                 "EC": v,
                 "Date": date.strftime("%Y-%m-%d"),
                 "Hour": i + 1,
-                "Zone": zone
+                "Zone": zone,
+                "Status": "0"
             })
 
         data["data"]["allData"] = all_datas
+
+    @staticmethod
+    def contains_data(hourly_entry: dict[str, Any]) -> bool:
+        return hourly_entry.get("Status") is not None and hourly_entry.get("EC") is not None
 
 
 class DailyDataCache:
@@ -566,6 +584,13 @@ class DailyDataCache:
             self._generation_data.pop(date_str)
         if date_str in self._consumption_data:
             self._consumption_data.pop(date_str)
+
+    def clear(self) -> None:
+        self.log(
+            f"Clearing cache: consumption - {len(self._consumption_data)}, generation - {len(self._generation_data)}"
+        )
+        self._generation_data.clear()
+        self._consumption_data.clear()
 
     @staticmethod
     def _format_date(date):
